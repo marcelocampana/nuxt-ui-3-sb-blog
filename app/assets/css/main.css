@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source inline("text-yellow-{50,{100..900..100},950}");
 @import "@nuxt/ui-pro";
 
 @theme static {
@@ -15,5 +16,5 @@
   --color-green-800: #016538;
   --color-green-900: #0a5331;
   --color-green-950: #052e16;
-  --color-blue-100: #eff6ff;
+
 }
