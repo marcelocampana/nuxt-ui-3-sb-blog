@@ -7,6 +7,6 @@ export default {
     './app.vue',
     './error.vue',
   ],
-  safelist: ["bg-text-500", "font-bold"],
+  // safelist: ["bg-text-500", "font-bold"],
   plugins: [],
 }
