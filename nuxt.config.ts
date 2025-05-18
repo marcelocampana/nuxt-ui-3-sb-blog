@@ -2,6 +2,10 @@
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
+  css: [
+    '@/assets/css/main.css',
+  ],
+
   modules: [
     '@nuxt/ui-pro',
     '@nuxt/eslint',
@@ -10,8 +14,9 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@nuxt/image',
     '@nuxt/scripts',
+ 
     ['@storyblok/nuxt', {
-      accessToken: '8BpRPiEgC07likcWSxJJ9Att',
+      accessToken: process.env.STORYBLOK_ACCESS_TOKEN,
       componentsDir: '~/storyblok',
     }],
   ],
@@ -28,10 +33,15 @@ export default defineNuxtConfig({
     ],
   },
 
-  css: ['~/assets/css/main.css'],
-
   future: {
     compatibilityVersion: 4
+  },
+   runtimeConfig: {
+    public: {
+      storyblokAccessToken: process.env.STORYBLOK_ACCESS_TOKEN,
+      storyblokContentVersion: process.env.STORYBLOK_CONTENT_VERSION,
+  
+    },
   },
 
   compatibilityDate: '2024-11-27'

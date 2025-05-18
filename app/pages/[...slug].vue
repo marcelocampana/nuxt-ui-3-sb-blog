@@ -1,6 +1,7 @@
 <script setup>
 
-const storyblokContentVersion = "draft";
+const config = useRuntimeConfig();
+const storyblokContentVersion = config.public.storyblokContentVersion;
 
 const route = useRoute();
 const slugArray = route.params.slug;
