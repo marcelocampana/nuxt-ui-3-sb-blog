@@ -3,14 +3,30 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
-   '@nuxt/ui-pro',
+    '@nuxt/ui-pro',
     '@nuxt/eslint',
     '@nuxt/content',
     '@nuxt/fonts',
     '@nuxt/icon',
     '@nuxt/image',
-    '@nuxt/scripts'
+    '@nuxt/scripts',
+    ['@storyblok/nuxt', {
+      accessToken: '8BpRPiEgC07likcWSxJJ9Att',
+      componentsDir: '~/storyblok',
+    }],
   ],
+   components: {
+    dirs: [
+      {
+        path: "~/storyblok",
+        global: true,
+      },
+      {
+        path: "~/components",
+        global: true,
+      },
+    ],
+  },
 
   css: ['~/assets/css/main.css'],
 

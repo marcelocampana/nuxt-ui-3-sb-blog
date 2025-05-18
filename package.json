@@ -20,6 +20,7 @@
     "@nuxt/image": "^1.10.0",
     "@nuxt/scripts": "^0.11.6",
     "@nuxt/ui-pro": "^3.1.2",
+    "@storyblok/nuxt": "^6.2.4",
     "@unhead/vue": "^2.0.8",
     "nuxt": "^3.17.3"
   },

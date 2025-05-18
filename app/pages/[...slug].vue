@@ -1,0 +1,33 @@
+<script setup>
+
+const storyblokContentVersion = "draft";
+
+const route = useRoute();
+const slugArray = route.params.slug;
+
+const slug = slugArray && slugArray.length > 0 ? slugArray.join("/") : "home";
+
+
+let story;
+// try {
+story = await useAsyncStoryblok(
+  slug || "not-found",
+  {
+    version: storyblokContentVersion,
+
+
+  },
+
+  { customParent: "https://app.storyblok.com" }
+);
+
+</script>
+
+<template>
+  <StoryblokComponent
+    v-if="story"
+    :blok="story.content"
+    :lang="story.lang"
+    class="font-body"
+  />
+</template>
