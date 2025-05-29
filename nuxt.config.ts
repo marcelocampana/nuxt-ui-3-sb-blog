@@ -39,8 +39,7 @@ export default defineNuxtConfig({
    runtimeConfig: {
     public: {
       storyblokAccessToken: process.env.STORYBLOK_ACCESS_TOKEN,
-      storyblokContentVersion: process.env.STORYBLOK_CONTENT_VERSION,
-  
+      storyblokContentVersion: process.env.STORYBLOK_CONTENT_VERSION || 'draft',
     },
   },
 ui: {
