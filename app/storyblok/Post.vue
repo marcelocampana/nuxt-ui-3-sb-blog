@@ -113,8 +113,15 @@ const renderedRichText = computed(() => {
         v-if="tocLinks?.length"
         #right
       >
-        <UContentToc :links="tocLinks" title="Tabla de Contenidos" color="primary"/>
+        <UContentToc 
+          :links="tocLinks" 
+          title="Tabla de Contenidos"
+         
+        />
       </template>
     </UPage>
   </UContainer>
+
 </template>
+
+¡
