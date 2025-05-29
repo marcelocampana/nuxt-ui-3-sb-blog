@@ -6,10 +6,11 @@ const props = defineProps({
   }
 })
 
-console.log(props.blok);
+console.log('blok', props.blok);
 
-// Usar el composable para el renderizado de tablas
+// Usar composables
 const { renderTable } = useRichTextTable();
+const { generateTocFromContent } = useExtractH2Links();
 
 // Verificar si el contenido es válido para renderizar
 const isValidContent = computed(() => {
@@ -19,8 +20,29 @@ const isValidContent = computed(() => {
          typeof props.blok.content === 'object';
 });
 
+// Generar TOC desde el contenido usando el composable
+const tocLinks = computed(() => {
+  if (!isValidContent.value) return [];
+  return generateTocFromContent(props.blok.content);
+});
+
 // Debug para ver la estructura del contenido
 const contentDebug = ref('');
+
+// Función personalizada para renderizar rich text manteniendo anchors existentes
+const renderRichTextWithIds = (content) => {
+  if (!content) return '';
+  
+  // No necesitamos modificar el contenido porque los anchors ya están en Storyblok
+  // Solo renderizamos el contenido tal como viene
+  if (content.type === 'doc' && 
+      content.content && 
+      content.content.some(node => node.type === 'table')) {
+    return renderTable(content);
+  } else {
+    return renderRichText(content);
+  }
+};
 
 const renderedRichText = computed(() => {
   if (!isValidContent.value) return 'nada';
@@ -30,19 +52,8 @@ const renderedRichText = computed(() => {
     // Guardar contenido para depuración
     contentDebug.value = JSON.stringify(props.blok.content, null, 2);
     
-    // Identificar si hay tablas en el contenido
-    const contenidoFinal = props.blok.content;
-    
-    if (contenidoFinal.type === 'doc' && 
-        contenidoFinal.content && 
-        contenidoFinal.content.some(node => node.type === 'table')) {
-      
-      // Si hay tablas, renderizar usando el composable
-      return renderTable(contenidoFinal);
-    } else {
-      // Si no hay tablas, usar renderRichText normal
-      return renderRichText(contenidoFinal);
-    }
+    // Renderizar con anchors existentes
+    return renderRichTextWithIds(props.blok.content);
   } catch (error) {
     console.error('Error al renderizar Rich Text:', error);
     return '<p>Error al procesar el contenido</p>';
@@ -99,10 +110,10 @@ const renderedRichText = computed(() => {
       </UPageBody>
 
       <template
-        v-if="blok?.body?.toc?.links?.length"
+        v-if="tocLinks?.length"
         #right
       >
-        <UContentToc :links="blok.body.toc.links" />
+        <UContentToc :links="tocLinks" title="Tabla de Contenidos" color="primary"/>
       </template>
     </UPage>
   </UContainer>
