@@ -8,6 +8,14 @@ const props = defineProps({
 
 console.log('blok', props.blok);
 
+const items = computed(() => {
+  return [
+    { label: 'Inicio', to: '/' },
+    { label: 'Blog', to: '/blog' },
+    // { label: props.blok.title, to: `/blog/${props.blok.slug}` }
+  ];
+});
+
 // Usar composables
 const { renderTable } = useRichTextTable();
 const { generateTocFromContent } = useExtractH2Links();
@@ -63,18 +71,35 @@ const renderedRichText = computed(() => {
 
 <template>
   <UContainer v-if="blok">
+    <!-- Breadcrumb fuera del UPageHeader para que aparezca arriba de todo -->
+    <div class="">
+      
+    </div>
+
     <UPageHeader
       :title="blok.title"
       :description="blok.excerpt"
     >
       <template #headline>
+        <UBreadcrumb :items="items">
+        <template #separator>
+          <span class="mx-2 text-muted">/</span>
+        </template>
+      </UBreadcrumb>
+   
+      </template>
+      <div class="flex items-center gap-2 mt-5">
         <UBadge
+          v-if="blok.category"
+          variant="subtle">{{ blok.category }}</UBadge>
+
+        
+     <UBadge
           variant="subtle">{{ blok.badge }}</UBadge>
 
         <span class="text-muted">&middot;</span>
         <time class="text-muted">{{ new Date(blok.date).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' }) }}</time>
-      </template>
-
+        </div>
       <div class="flex flex-wrap items-center gap-3 mt-4">
         <UButton
           v-for="(author, index) in blok.authors"
