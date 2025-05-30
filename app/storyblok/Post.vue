@@ -51,36 +51,126 @@ const tocLinks = computed(() => {
   return generateTocFromContent(props.blok.content);
 });
 
-console.log(tocLinks.value);
+console.log('TOC Links generados:', tocLinks.value);
 
-
+// Función para agregar IDs a los H2s en el HTML renderizado
+const addIdsToH2s = (html, tocLinks) => {
+  if (!html || !tocLinks.length) return html;
+  
+  // Crear un mapa de texto a ID para hacer el matching
+  const textToIdMap = new Map();
+  tocLinks.forEach(link => {
+    // Normalizar el texto para el matching (quitar acentos, espacios extra, etc.)
+    const normalizedText = link.text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+      .replace(/[^\w\s]/g, '') // Quitar puntuación
+      .replace(/\s+/g, ' ')
+      .trim();
+    textToIdMap.set(normalizedText, link.id);
+  });
+  
+  console.log('Mapa de texto a ID:', textToIdMap);
+  
+  // Usar DOMParser para modificar el HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const h2Elements = doc.querySelectorAll('h2');
+  
+  h2Elements.forEach((h2, index) => {
+    if (!h2.id) { // Solo procesar H2s sin ID
+      const h2Text = h2.textContent
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      console.log(`Buscando ID para H2 ${index + 1}: "${h2Text}"`);
+      
+      const matchingId = textToIdMap.get(h2Text);
+      if (matchingId) {
+        h2.id = matchingId;
+        console.log(`✅ ID asignado: ${matchingId}`);
+      } else {
+        console.log(`❌ No se encontró ID para: "${h2Text}"`);
+        // Fallback: usar el índice del TOC si coincide
+        if (tocLinks[index]) {
+          h2.id = tocLinks[index].id;
+          console.log(`🔄 Fallback ID asignado: ${tocLinks[index].id}`);
+        }
+      }
+    }
+  });
+  
+  return doc.body.innerHTML;
+};
 
 // Función personalizada para renderizar rich text manteniendo anchors existentes
 const renderRichTextWithIds = (content) => {
   if (!content) return '';
   
-  // No necesitamos modificar el contenido porque los anchors ya están en Storyblok
-  // Solo renderizamos el contenido tal como viene
+  let html = '';
+  
+  // Renderizar el contenido normalmente
   if (content.type === 'doc' && 
       content.content && 
       content.content.some(node => node.type === 'table')) {
-    return renderTable(content);
+    html = renderTable(content);
   } else {
-    return renderRichText(content);
+    html = renderRichText(content);
   }
+  
+  // Agregar IDs a los H2s siempre (tanto en servidor como cliente)
+  if (tocLinks.value.length > 0) {
+    html = addIdsToH2s(html, tocLinks.value);
+  }
+  
+  return html;
 };
 
 const renderedRichText = computed(() => {
   if (!isValidContent.value) return '';
   
   try {
-
-    
     // Renderizar con anchors existentes
     return renderRichTextWithIds(props.blok.content);
   } catch (error) {
     console.error('Error al renderizar Rich Text:', error);
     return '<p>Error al procesar el contenido</p>';
+  }
+});
+
+// Verificar que los elementos H2 existan en el DOM después del render
+onMounted(() => {
+  if (process.client) {
+    nextTick(() => {
+      setTimeout(() => {
+        console.log('=== VERIFICACIÓN POST-RENDER ===');
+        
+        const allH2s = document.querySelectorAll('h2');
+        console.log(`Total de H2s en el DOM: ${allH2s.length}`);
+        allH2s.forEach((h2, index) => {
+          console.log(`H2 ${index + 1}: ID="${h2.id}", Texto="${h2.textContent?.trim()}"`);
+        });
+        
+        // Verificar que cada enlace del TOC tenga su elemento correspondiente
+        tocLinks.value.forEach(link => {
+          const element = document.getElementById(link.id);
+          console.log(`- ${link.id}:`, element ? 'ENCONTRADO ✅' : 'NO ENCONTRADO ❌');
+        });
+        
+        console.log('=== FIN VERIFICACIÓN ===');
+        
+        // Forzar refresh del UContentToc si es necesario
+        nextTick(() => {
+          // Disparar un evento personalizado para que el TOC se recalcule
+          window.dispatchEvent(new Event('resize'));
+        });
+      }, 1500);
+    });
   }
 });
 </script>
@@ -156,6 +246,8 @@ const renderedRichText = computed(() => {
           :links="tocLinks" 
           title="Tabla de Contenidos"
          
+          highlight 
+          highlight-color="primary"
         />
       </template>
     </UPage>

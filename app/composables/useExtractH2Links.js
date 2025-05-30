@@ -81,7 +81,24 @@ export const useExtractH2Links = () => {
    * @returns {Array} - Array de enlaces para UContentToc
    */
   const generateTocFromContent = (content) => {
-    return extractH2WithAnchors(content);
+    const headings = extractH2WithAnchors(content);
+    
+    console.log('=== DEBUG TOC GENERATION ===');
+    console.log('Contenido original:', content);
+    console.log('Headings extraídos:', headings);
+    
+    // Estructura exacta que espera UContentToc
+    const tocLinks = headings.map(heading => ({
+      id: heading.id,
+      text: heading.text,
+      depth: heading.depth,
+      children: heading.children || []
+    }));
+    
+    console.log('Enlaces TOC finales:', tocLinks);
+    console.log('=== FIN DEBUG ===');
+    
+    return tocLinks;
   };
 
   return {
