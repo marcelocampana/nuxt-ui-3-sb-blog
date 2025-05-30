@@ -1,18 +1,11 @@
-<script setup lang="ts">
-import { UMain } from '#components';
-
-</script>
-
 <template>
   <div>
+    <AppHeader />
 
-
-    <UContainer>
-        <UMain>
+    <UMain>
       <slot />
-        </UMain>
-    </UContainer>
+    </UMain>
 
-
+    <!-- <AppFooter /> -->
   </div>
 </template>

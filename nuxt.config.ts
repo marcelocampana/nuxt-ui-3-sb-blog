@@ -5,6 +5,9 @@ export default defineNuxtConfig({
   css: [
     '@/assets/css/main.css',
   ],
+   ui: {
+    colorMode: false
+  },
 
   modules: [
     '@nuxt/ui-pro',

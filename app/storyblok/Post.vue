@@ -6,6 +6,23 @@ const props = defineProps({
   }
 })
 
+const surround = ref([
+  {
+    title: 'Estudios clínicos oncológicos: Guía para el paciente',
+    description: 'Guía para pacientes sobre estudios clínicos oncológicos, incluyendo qué esperar y cómo participar.',
+    path: '/components/content-search-button',
+
+  
+  },
+  {
+    title: 'Nuevos tratamientos contra el cáncer',
+    description: 'Exploración de los últimos avances en tratamientos contra el cáncer, incluyendo terapias dirigidas e inmunoterapia.',
+    path: '/components/content-toc',
+    stem: '3.components/content-toc',
+ 
+  }
+])
+
 console.log('blok', props.blok);
 
 const items = computed(() => {
@@ -34,8 +51,9 @@ const tocLinks = computed(() => {
   return generateTocFromContent(props.blok.content);
 });
 
-// Debug para ver la estructura del contenido
-const contentDebug = ref('');
+console.log(tocLinks.value);
+
+
 
 // Función personalizada para renderizar rich text manteniendo anchors existentes
 const renderRichTextWithIds = (content) => {
@@ -53,12 +71,10 @@ const renderRichTextWithIds = (content) => {
 };
 
 const renderedRichText = computed(() => {
-  if (!isValidContent.value) return 'nada';
+  if (!isValidContent.value) return '';
   
   try {
-    console.log('aqui estoy rich');
-    // Guardar contenido para depuración
-    contentDebug.value = JSON.stringify(props.blok.content, null, 2);
+
     
     // Renderizar con anchors existentes
     return renderRichTextWithIds(props.blok.content);
@@ -72,9 +88,7 @@ const renderedRichText = computed(() => {
 <template>
   <UContainer v-if="blok">
     <!-- Breadcrumb fuera del UPageHeader para que aparezca arriba de todo -->
-    <div class="">
-      
-    </div>
+
 
     <UPageHeader
       :title="blok.title"
@@ -91,11 +105,11 @@ const renderedRichText = computed(() => {
       <div class="flex items-center gap-2 mt-5">
         <UBadge
           v-if="blok.category"
-          variant="subtle">{{ blok.category }}</UBadge>
+          variant="soft">{{ blok.category }}</UBadge>
 
         
      <UBadge
-          variant="subtle">{{ blok.badge }}</UBadge>
+          variant="soft">{{ blok.badge }}</UBadge>
 
         <span class="text-muted">&middot;</span>
         <time class="text-muted">{{ new Date(blok.date).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' }) }}</time>
@@ -106,7 +120,7 @@ const renderedRichText = computed(() => {
           :key="index"
           :to="author.to"
           color="neutral"
-          variant="subtle"
+          variant="soft"
           target="_blank"
           size="sm"
         >
@@ -116,7 +130,7 @@ const renderedRichText = computed(() => {
             size="2xs"
           />
 
-          {{ author.name }}
+          Editorial
         </UButton>
       </div>
     </UPageHeader>
@@ -127,9 +141,9 @@ const renderedRichText = computed(() => {
             <div class="richtext-content prose prose-lg max-w-none mx-auto">
          <div v-if="blok && isValidContent" v-html="renderedRichText"></div>
 
-        <!-- <USeparator v-if="surround?.length" />
 
-        <UContentSurround :surround="surround" /> -->
+
+        <UContentSurround :surround="surround" :ui="{root:'mt-12', link: 'no-underline pb-1', linkTitle:'underline decoration-gray-50', linkDescription:'underline decoration-gray-50 -mt-4'}" class="underline"/>
         </div>
         </div>
       </UPageBody>
