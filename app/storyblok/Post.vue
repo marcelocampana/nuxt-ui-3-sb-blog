@@ -57,78 +57,89 @@ console.log('TOC Links generados:', tocLinks.value);
 const addIdsToH2s = (html, tocLinks) => {
   if (!html || !tocLinks.length) return html;
   
-  // Crear un mapa de texto a ID para hacer el matching
-  const textToIdMap = new Map();
-  tocLinks.forEach(link => {
-    // Normalizar el texto para el matching (quitar acentos, espacios extra, etc.)
-    const normalizedText = link.text
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-      .replace(/[^\w\s]/g, '') // Quitar puntuación
-      .replace(/\s+/g, ' ')
-      .trim();
-    textToIdMap.set(normalizedText, link.id);
-  });
+  // Solo ejecutar la manipulación del DOM en el cliente
+  if (!process.client) {
+    return html; // En el servidor, devolver el HTML sin modificar
+  }
   
-  console.log('Mapa de texto a ID:', textToIdMap);
-  
-  // Usar DOMParser para modificar el HTML
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const h2Elements = doc.querySelectorAll('h2');
-  
-  h2Elements.forEach((h2, index) => {
-    if (!h2.id) { // Solo procesar H2s sin ID
-      const h2Text = h2.textContent
+  try {
+    // Crear un mapa de texto a ID para hacer el matching
+    const textToIdMap = new Map();
+    tocLinks.forEach(link => {
+      const normalizedText = link.text
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\w\s]/g, '')
+        .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+        .replace(/[^\w\s]/g, '') // Quitar puntuación
         .replace(/\s+/g, ' ')
         .trim();
-      
-      console.log(`Buscando ID para H2 ${index + 1}: "${h2Text}"`);
-      
-      const matchingId = textToIdMap.get(h2Text);
-      if (matchingId) {
-        h2.id = matchingId;
-        console.log(`✅ ID asignado: ${matchingId}`);
-      } else {
-        console.log(`❌ No se encontró ID para: "${h2Text}"`);
-        // Fallback: usar el índice del TOC si coincide
-        if (tocLinks[index]) {
+      textToIdMap.set(normalizedText, link.id);
+    });
+    
+    // Usar DOMParser para modificar el HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const h2Elements = doc.querySelectorAll('h2');
+    
+    h2Elements.forEach((h2, index) => {
+      if (!h2.id) { // Solo procesar H2s sin ID
+        const h2Text = h2.textContent
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w\s]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        const matchingId = textToIdMap.get(h2Text);
+        if (matchingId) {
+          h2.id = matchingId;
+        } else if (tocLinks[index]) {
+          // Fallback: usar el índice del TOC si coincide
           h2.id = tocLinks[index].id;
-          console.log(`🔄 Fallback ID asignado: ${tocLinks[index].id}`);
         }
       }
-    }
-  });
-  
-  return doc.body.innerHTML;
+    });
+    
+    return doc.body.innerHTML;
+  } catch (error) {
+    console.error('Error en addIdsToH2s:', error);
+    return html; // Devolver HTML original si hay error
+  }
 };
 
 // Función personalizada para renderizar rich text manteniendo anchors existentes
 const renderRichTextWithIds = (content) => {
   if (!content) return '';
   
-  let html = '';
-  
-  // Renderizar el contenido normalmente
-  if (content.type === 'doc' && 
-      content.content && 
-      content.content.some(node => node.type === 'table')) {
-    html = renderTable(content);
-  } else {
-    html = renderRichText(content);
+  try {
+    let html = '';
+    
+    // Renderizar el contenido normalmente
+    if (content.type === 'doc' && 
+        content.content && 
+        content.content.some(node => node.type === 'table')) {
+      html = renderTable(content);
+    } else {
+      html = renderRichText(content);
+    }
+    
+    // Solo agregar IDs en el cliente después del primer renderizado
+    if (process.client && tocLinks.value.length > 0) {
+      html = addIdsToH2s(html, tocLinks.value);
+    }
+    
+    return html;
+  } catch (error) {
+    console.error('Error en renderRichTextWithIds:', error);
+    // Fallback: intentar renderizado básico
+    try {
+      return renderRichText(content);
+    } catch (fallbackError) {
+      console.error('Error en fallback:', fallbackError);
+      return '<p>Error al procesar el contenido</p>';
+    }
   }
-  
-  // Agregar IDs a los H2s siempre (tanto en servidor como cliente)
-  if (tocLinks.value.length > 0) {
-    html = addIdsToH2s(html, tocLinks.value);
-  }
-  
-  return html;
 };
 
 const renderedRichText = computed(() => {
@@ -143,10 +154,58 @@ const renderedRichText = computed(() => {
   }
 });
 
+// Función para agregar IDs después del montaje
+const addIdsPostMount = () => {
+  if (!process.client || !tocLinks.value.length) return;
+  
+  setTimeout(() => {
+    const allH2s = document.querySelectorAll('.richtext-content h2');
+    console.log(`Encontrados ${allH2s.length} H2s post-mount`);
+    
+    // Crear mapa de texto a ID
+    const textToIdMap = new Map();
+    tocLinks.value.forEach(link => {
+      const normalizedText = link.text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      textToIdMap.set(normalizedText, link.id);
+    });
+    
+    allH2s.forEach((h2, index) => {
+      if (!h2.id) {
+        const h2Text = h2.textContent
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w\s]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        const matchingId = textToIdMap.get(h2Text);
+        if (matchingId) {
+          h2.id = matchingId;
+          console.log(`✅ ID post-mount asignado: ${matchingId} a "${h2.textContent?.trim()}"`);
+        } else if (tocLinks.value[index]) {
+          h2.id = tocLinks.value[index].id;
+          console.log(`🔄 ID fallback post-mount: ${tocLinks.value[index].id}`);
+        }
+      }
+    });
+  }, 100);
+};
+
 // Verificar que los elementos H2 existan en el DOM después del render
 onMounted(() => {
   if (process.client) {
     nextTick(() => {
+      // Agregar IDs inmediatamente después del montaje
+      addIdsPostMount();
+      
+      // Verificación después de un tiempo
       setTimeout(() => {
         console.log('=== VERIFICACIÓN POST-RENDER ===');
         
@@ -163,12 +222,6 @@ onMounted(() => {
         });
         
         console.log('=== FIN VERIFICACIÓN ===');
-        
-        // Forzar refresh del UContentToc si es necesario
-        nextTick(() => {
-          // Disparar un evento personalizado para que el TOC se recalcule
-          window.dispatchEvent(new Event('resize'));
-        });
       }, 1500);
     });
   }
@@ -245,7 +298,6 @@ onMounted(() => {
         <UContentToc 
           :links="tocLinks" 
           title="Tabla de Contenidos"
-         
           highlight 
           highlight-color="primary"
         />
@@ -254,5 +306,3 @@ onMounted(() => {
   </UContainer>
 
 </template>
-
-¡
