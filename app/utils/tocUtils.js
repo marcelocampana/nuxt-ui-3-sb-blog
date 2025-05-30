@@ -134,3 +134,138 @@ export const verifyH2Elements = (tocLinks, delay = 1500) => {
     console.log('=== FIN VERIFICACIÓN ===');
   }, delay);
 };
+
+/**
+ * Obtiene la altura del header para calcular el offset de scroll
+ * @returns {number} - Altura del header en pixels
+ */
+export const getHeaderHeight = () => {
+  if (!process.client) return 0;
+  
+  // Buscar diferentes posibles selectores del header
+  const headerSelectors = [
+    'header',
+    '[data-header]',
+    '.header',
+    'nav[role="banner"]',
+    // Selectores específicos de Nuxt UI
+    '[data-nuxt-ui-header]',
+    '.nuxt-ui-header'
+  ];
+  
+  for (const selector of headerSelectors) {
+    const header = document.querySelector(selector);
+    if (header) {
+      const height = header.getBoundingClientRect().height;
+      console.log(`Header encontrado con selector "${selector}": ${height}px`);
+      return height;
+    }
+  }
+  
+  // Fallback más alto para asegurar que se vea bien
+  console.log('Header no encontrado, usando fallback: 80px');
+  return 80; // <-- Cambia este valor si es necesario
+};
+
+/**
+ * Hace scroll suave a un elemento con offset para el header
+ * @param {string} elementId - ID del elemento al que hacer scroll
+ * @param {number} additionalOffset - Offset adicional en pixels (será calculado dinámicamente)
+ */
+export const scrollToElementWithOffset = (elementId, additionalOffset = null) => {
+  if (!process.client) return;
+  
+  const element = document.getElementById(elementId);
+  if (!element) {
+    console.warn(`Elemento con ID "${elementId}" no encontrado`);
+    return;
+  }
+  
+  // Si no se proporciona offset, calcularlo según el tamaño de pantalla
+  if (additionalOffset === null) {
+    const isMobile = window.innerWidth < 768;
+    additionalOffset = isMobile ? -10 : -25; // Mismos valores que en Post.vue
+  }
+  
+  const headerHeight = getHeaderHeight();
+  const elementTop = element.getBoundingClientRect().top + window.pageYOffset;
+  const offsetTop = elementTop - headerHeight - additionalOffset;
+  
+  console.log(`Scrolling to ${elementId}:`, {
+    headerHeight,
+    elementTop,
+    finalOffset: offsetTop,
+    additionalOffset,
+    isMobile: window.innerWidth < 768
+  });
+  
+  window.scrollTo({
+    top: Math.max(0, offsetTop),
+    behavior: 'smooth'
+  });
+};
+
+/**
+ * Agrega CSS scroll-padding-top al documento para compensar el header fijo
+ * @param {number} additionalPadding - Padding adicional en pixels (default: 40)
+ */
+export const addScrollPadding = (additionalPadding = 40) => {
+  if (!process.client) return;
+  
+  const headerHeight = getHeaderHeight();
+  const totalPadding = headerHeight + additionalPadding;
+  
+  console.log(`Agregando scroll-padding-top: ${totalPadding}px`);
+  
+  // Agregar scroll-padding-top al html
+  document.documentElement.style.scrollPaddingTop = `${totalPadding}px`;
+  
+  // También agregar scroll-margin-top a los headings específicamente
+  const style = document.createElement('style');
+  style.textContent = `
+    .richtext-content h2 {
+      scroll-margin-top: ${totalPadding}px;
+    }
+    .richtext-content h1,
+    .richtext-content h3,
+    .richtext-content h4,
+    .richtext-content h5,
+    .richtext-content h6 {
+      scroll-margin-top: ${totalPadding}px;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+/**
+ * Intercepta clics en enlaces del TOC para hacer scroll personalizado
+ * @param {Array} tocLinks - Array de enlaces del TOC
+ */
+export const interceptTocClicks = (tocLinks) => {
+  if (!process.client || !tocLinks.length) return;
+  
+  // Esperar un poco para que el TOC esté renderizado
+  setTimeout(() => {
+    // Buscar todos los enlaces del TOC
+    const tocContainer = document.querySelector('[data-toc]') || document.querySelector('.toc');
+    if (!tocContainer) return;
+    
+    const tocLinkElements = tocContainer.querySelectorAll('a[href^="#"]');
+    
+    tocLinkElements.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          const elementId = href.substring(1);
+          scrollToElementWithOffset(elementId);
+          
+          // Actualizar la URL sin hacer scroll
+          history.pushState(null, null, href);
+        }
+      });
+    });
+    
+    console.log(`✅ Interceptados ${tocLinkElements.length} enlaces del TOC`);
+  }, 500);
+};

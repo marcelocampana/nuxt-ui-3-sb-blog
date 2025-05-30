@@ -7,7 +7,13 @@ const props = defineProps({
 })
 
 // Importar utilidades
-import { addIdsToH2s, addIdsPostMount, verifyH2Elements } from '~/utils/tocUtils';
+import { 
+  addIdsToH2s, 
+  addIdsPostMount, 
+  verifyH2Elements,
+  addScrollPadding,
+  interceptTocClicks
+} from '~/utils/tocUtils';
 
 const surround = ref([
   {
@@ -96,11 +102,27 @@ const renderedRichText = computed(() => {
 onMounted(() => {
   if (process.client) {
     nextTick(() => {
-      // Agregar IDs inmediatamente después del montaje usando la utilidad
+      // Opción 2: Diferentes valores para móvil y desktop
+      const isMobile = window.innerWidth < 768;
+      const offset = isMobile ? -0 : -20; // Ajusta estos valores según necesites
+      
+      // También puedes usar un enfoque más granular:
+      // const offset = window.innerWidth < 640 ? -5 : // móvil pequeño
+      //                window.innerWidth < 768 ? -10 : // tablet
+      //                -25; // desktop
+      
+      addScrollPadding(offset);
+      
+      // Agregar IDs inmediatamente después del montaje
       addIdsPostMount(tocLinks.value);
       
-      // Verificación después de un tiempo usando la utilidad
-      verifyH2Elements(tocLinks.value);
+      // Interceptar clics del TOC para scroll personalizado
+      interceptTocClicks(tocLinks.value);
+      
+      // Verificación después de un tiempo (opcional, para debug)
+      if (process.env.NODE_ENV === 'development') {
+        verifyH2Elements(tocLinks.value);
+      }
     });
   }
 });
@@ -183,6 +205,7 @@ onMounted(() => {
           title="Tabla de Contenidos"
           highlight 
           highlight-color="primary"
+          data-toc
         />
       </template>
     </UPage>

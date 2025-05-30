@@ -274,3 +274,20 @@
 .richtext-content.prose {
   @apply max-w-none;
 }
+
+/* Compensar header fijo en navegación por anchors */
+html {
+  scroll-padding-top: 100px; /* Ajusta según la altura de tu header */
+}
+
+/* Estilos adicionales para suavizar el scroll */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Asegurar que los headings tengan el espacio correcto */
+.richtext-content h2 {
+  scroll-margin-top: 100px; /* Alternativa más específica */
+}
