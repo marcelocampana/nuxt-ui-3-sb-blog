@@ -1,11 +1,20 @@
 <script setup lang="ts">
 const route = useRoute()
 
+const selectedLanguage = ref('ESP')
+const languages = [{
+  label: 'ESP',
+  value: 'ESP'
+}, {
+  label: 'ENG', 
+  value: 'ENG'
+}]
+
 const items = computed(() => [{
   label: 'Nosotros',
   to: '/nosotros',
   children: [{
-    label: 'BHN',
+    label: 'Bradford Hill Norte',
     to: '/bhn'
   }]
 }, {
@@ -52,22 +61,27 @@ const items = computed(() => [{
     />
 
     <template #right>
-
-
-      <!-- <UButton
-        icon="i-lucide-log-in"
-        color="neutral"
-        variant="ghost"
-        to="/login"
-        class="lg:hidden"
-      /> -->
+      <div class="hidden sm:flex items-center gap-1 rounded-md p-1">
+        <UButton
+          label="ESP"
+          :variant="selectedLanguage === 'ESP' ? 'solid' : 'ghost'"
+          size="xs"
+          @click="selectedLanguage = 'ESP'"
+          class="text-xs"
+        />
+        <UButton
+          label="ENG"
+          :variant="selectedLanguage === 'ENG' ? 'solid' : 'ghost'"
+          size="xs"
+          @click="selectedLanguage = 'ENG'"
+          class="text-xs"
+        />
+      </div>
 
       <UButton
         label="Te evaluamos"
-       
-        
         to="/login"
-        class="hidden lg:inline-flex bg-red text-white"
+        class="bg-red text-white"
       />
 
    
