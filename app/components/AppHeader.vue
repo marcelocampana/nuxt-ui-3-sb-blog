@@ -2,15 +2,36 @@
 const route = useRoute()
 
 const items = computed(() => [{
-  label: 'Docs',
-  to: '/docs',
-  active: route.path.startsWith('/docs')
+  label: 'Nosotros',
+  to: '/nosotros',
+  children: [{
+    label: 'BHN',
+    to: '/bhn'
+  }]
 }, {
-  label: 'Pricing',
-  to: '/pricing'
+  label: 'Estudios Clínicos',
+  to: '/estudios-clinicos'
 }, {
-  label: 'Blog',
-  to: '/blog'
+  label: 'Publicaciones',
+  to: '/publicaciones'
+}, {
+  label: 'Comité de Ética',
+  to: '/comite-etica'
+}, {
+  label: 'Comunicaciones',
+  children: [{label: 'Preguntas Frecuentes', to: '/faqs', description: 'Preguntas Frecuentes sobre Estudios Clínicos'}, {
+    label: 'Blog',
+    to: '/blog',
+    description: 'Articulos de investigación, innovación y esperanza en el tratamiento del cáncer'
+  }, {
+    label: 'Prensa',
+    to: '/prensa',
+    description: 'Noticias y comunicados de prensa'
+  }],
+
+}, {
+  label: 'Contacto',
+  to: '/contacto'
 }])
 </script>
 
@@ -23,10 +44,12 @@ const items = computed(() => [{
     
     </template>
 
-    <!-- <UNavigationMenu
+    <UNavigationMenu
       :items="items"
       variant="link"
-    /> -->
+      content-orientation="vertical"
+      :ui="{link: 'text-sm font-semibold text-gray-900 dark:text-neutral-100 hover:text-red'}"
+    />
 
     <template #right>
 
