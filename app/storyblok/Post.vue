@@ -143,12 +143,33 @@ onMounted(() => {
       </template>
       
       <div class="flex items-center gap-2 mt-5">
-        <UBadge
+         <div class="flex flex-wrap items-center gap-3 ">
+        <UButton
+      
+        label="Dr.Juan Rodríguez"
+          color="neutral"
+          variant=""
+          target="_blank"
+          size="sm"
+          :ui="{ base: 'text-gray-600 pr-0' }"
+        >
+          <UAvatar
+           src="images/doc.webp"
+            alt="Author avatar"
+            size="xs"
+     
+          />
+        Por Dr. Juan Rodríguez  
+        </UButton>
+        <span class="text-muted">&middot;</span>
+      </div>
+
+        <!-- <UBadge
           v-if="blok.category"
           variant="soft"
         >
           {{ blok.category }}
-        </UBadge>
+        </UBadge> -->
         <UBadge variant="soft">{{ blok.badge }}</UBadge>
         <span class="text-muted">&middot;</span>
         <time class="text-muted">
@@ -156,24 +177,7 @@ onMounted(() => {
         </time>
       </div>
       
-      <div class="flex flex-wrap items-center gap-3 mt-4">
-        <UButton
-          v-for="(author, index) in blok.authors"
-          :key="index"
-          :to="author.to"
-          color="neutral"
-          variant="soft"
-          target="_blank"
-          size="sm"
-        >
-          <UAvatar
-            v-bind="author.avatar"
-            alt="Author avatar"
-            size="2xs"
-          />
-          Editorial
-        </UButton>
-      </div>
+     
     </UPageHeader>
 
     <UPage>
