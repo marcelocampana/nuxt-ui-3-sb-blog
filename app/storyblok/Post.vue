@@ -53,21 +53,85 @@ const tocLinks = computed(() => {
   return generateTocFromContent(props.blok.content);
 });
 
-// Función personalizada para renderizar rich text manteniendo anchors existentes
+// Variables para debugging visual
+const debugInfo = ref({
+  renderizado: false,
+  resolverEjecutado: false,
+  placeholdersGenerados: 0,
+  componentesEncontrados: 0,
+  placeholdersEnDOM: 0,
+  htmlContienePlaceholders: false,
+  errores: []
+});
+
+const componentDataMap = new Map();
+
+// NUEVA ESTRATEGIA: Separar contenido normal de nodos blok
+const separateContentAndBloks = (content) => {
+  if (!content?.content) return { normalContent: content, blokNodes: [] };
+  
+  const blokNodes = [];
+  const normalContent = {
+    ...content,
+    content: content.content.filter(node => {
+      if (node.type === 'blok') {
+        blokNodes.push(node);
+        return false; // Remover del contenido normal
+      }
+      return true; // Mantener en el contenido normal
+    })
+  };
+  
+  return { normalContent, blokNodes };
+};
+
+// CORREGIR: Renderizado sin mutaciones reactivas
 const renderRichTextWithIds = (content) => {
   if (!content) return '';
   
   try {
-    let html = '';
+    // NO mutar debugInfo aquí - causa bucle infinito
+    // debugInfo.value.renderizado = true;
     
-    // Renderizar el contenido normalmente
-    if (content.type === 'doc' && 
-        content.content && 
-        content.content.some(node => node.type === 'table')) {
-      html = renderTable(content);
-    } else {
-      html = renderRichText(content);
-    }
+    if (!content.content) return '';
+    
+    let html = '';
+    let placeholdersCount = 0;
+    let hasBlokNodes = false;
+    
+    // Procesar cada nodo individualmente manteniendo el orden
+    content.content.forEach(node => {
+      if (node.type === 'blok') {
+        // Este es un componente anidado - crear placeholder
+        hasBlokNodes = true;
+        placeholdersCount++;
+        
+        if (node.attrs && node.attrs.body && node.attrs.body[0]) {
+          const componentData = node.attrs.body[0];
+          const uid = componentData._uid;
+          const component = componentData.component;
+          
+          html += `<div class="storyblok-component" data-component="${component}" data-uid="${uid}">⚡ PLACEHOLDER: ${component}</div>`;
+        }
+      } else {
+        // Este es contenido normal - renderizar individualmente
+        const singleNodeContent = {
+          type: 'doc',
+          content: [node]
+        };
+        
+        try {
+          if (node.type === 'table') {
+            html += renderTable(singleNodeContent);
+          } else {
+            html += renderRichText(singleNodeContent);
+          }
+        } catch (nodeError) {
+          // Si hay error renderizando un nodo individual, saltarlo
+          console.warn('Error renderizando nodo:', node.type, nodeError);
+        }
+      }
+    });
     
     // Solo agregar IDs en el cliente después del primer renderizado
     if (process.client && tocLinks.value.length > 0) {
@@ -77,7 +141,6 @@ const renderRichTextWithIds = (content) => {
     return html;
   } catch (error) {
     console.error('Error en renderRichTextWithIds:', error);
-    // Fallback: intentar renderizado básico
     try {
       return renderRichText(content);
     } catch (fallbackError) {
@@ -87,20 +150,122 @@ const renderRichTextWithIds = (content) => {
   }
 };
 
-const renderedRichText = computed(() => {
-  if (!isValidContent.value) return '';
+// CORREGIR: Extraer componentes una sola vez al montar, no en cada render
+const extractComponentData = (content) => {
+  if (!content?.content) return;
   
-  try {
-    return renderRichTextWithIds(props.blok.content);
-  } catch (error) {
-    console.error('Error al renderizar Rich Text:', error);
-    return '<p>Error al procesar el contenido</p>';
-  }
-});
+  // Limpiar el mapa antes de extraer
+  componentDataMap.clear();
+  debugInfo.value.componentesEncontrados = 0;
+  
+  // Buscar directamente en el contenido principal
+  content.content.forEach(node => {
+    if (node.type === 'blok' && node.attrs && node.attrs.body) {
+      const componentData = node.attrs.body[0];
+      if (componentData && componentData._uid) {
+        componentDataMap.set(componentData._uid, componentData);
+        debugInfo.value.componentesEncontrados++;
+      }
+    }
+  });
+};
+
+// CORREGIR: No llamar extractComponentData de nuevo en replaceComponentPlaceholders
+const replaceComponentPlaceholders = async () => {
+  if (!process.client) return;
+  
+  extractComponentData(props.blok.content);
+  await nextTick();
+  
+  const placeholders = document.querySelectorAll('.storyblok-component');
+  debugInfo.value.placeholdersEnDOM = placeholders.length;
+  
+  placeholders.forEach(async (placeholder) => {
+    const component = placeholder.dataset.component;
+    const uid = placeholder.dataset.uid;
+    
+    let componentData = componentDataMap.get(uid);
+    
+    if (!componentData) {
+      for (const [key, value] of componentDataMap.entries()) {
+        if (value.component === component) {
+          componentData = value;
+          break;
+        }
+      }
+    }
+    
+    if (componentData && component === 'About-Author') {
+      // Usar el componente AboutAuthor real
+      placeholder.outerHTML = `
+        <div class="about-author bg-gray-50 border border-gray-200 rounded-lg p-6 my-8">
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">
+            Sobre el Autor
+          </h3>
+          
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
+                ${componentData.avatar?.filename ? 
+                  `<img src="${componentData.avatar.filename}" alt="${componentData.name}" class="w-full h-full object-cover">` : 
+                  `<span class="text-gray-600 text-xl font-semibold">${componentData.name?.charAt(0) || 'A'}</span>`
+                }
+              </div>
+            </div>
+            
+            <div class="flex-1">
+              <h4 class="text-lg font-semibold text-gray-900 mb-1">
+                ${componentData.name || 'Autor'}
+              </h4>
+              
+              ${componentData.role ? `<p class="text-sm text-gray-600 mb-3 italic">${componentData.role}</p>` : ''}
+              
+              ${componentData.bio ? `<p class="text-sm text-gray-700 leading-relaxed">${componentData.bio}</p>` : ''}
+              
+              ${(componentData.email || componentData.linkedin || componentData.twitter) ? `
+                <div class="flex gap-3 mt-3">
+                  ${componentData.email ? `<a href="mailto:${componentData.email}" class="text-xs text-gray-600 hover:text-gray-800">📧 Email</a>` : ''}
+                  ${componentData.linkedin ? `<a href="${componentData.linkedin}" target="_blank" class="text-xs text-gray-600 hover:text-gray-800">💼 LinkedIn</a>` : ''}
+                  ${componentData.twitter ? `<a href="${componentData.twitter}" target="_blank" class="text-xs text-gray-600 hover:text-gray-800">🐦 Twitter</a>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (componentData) {
+      // Para otros tipos de componentes, mantener el debug
+      placeholder.innerHTML = `
+        <div class="p-4 border rounded bg-blue-50 border-blue-200">
+          <p class="text-sm text-blue-700">
+            ✅ Componente: <strong>${componentData.component}</strong>
+          </p>
+          <p class="text-xs text-blue-600 mt-1">
+            UID: ${componentData._uid}
+          </p>
+        </div>
+      `;
+    } else {
+      placeholder.innerHTML = `
+        <div class="p-4 border rounded bg-red-50 border-red-200">
+          <p class="text-sm text-red-700">
+            ❌ No se encontraron datos para: <strong>${component}</strong>
+          </p>
+        </div>
+      `;
+    }
+  });
+};
 
 // Verificar que los elementos H2 existan en el DOM después del render
 onMounted(() => {
   if (process.client) {
+    // Extraer componentes inmediatamente
+    extractComponentData(props.blok.content);
+    
+    // Actualizar debug info una sola vez
+    updateDebugInfo();
+    
     nextTick(() => {
       // Opción 2: Diferentes valores para móvil y desktop
       const isMobile = window.innerWidth < 768;
@@ -123,9 +288,44 @@ onMounted(() => {
       if (process.env.NODE_ENV === 'development') {
         verifyH2Elements(tocLinks.value);
       }
+      
+      // AGREGAR: Reemplazar componentes después del montaje
+      setTimeout(() => {
+        replaceComponentPlaceholders();
+      }, 200);
     });
   }
 });
+
+// AGREGAR: Función para actualizar debug info sin causar loops
+const updateDebugInfo = () => {
+  if (!process.client) return;
+  
+  debugInfo.value.renderizado = true;
+  debugInfo.value.resolverEjecutado = true;
+  debugInfo.value.placeholdersGenerados = 1; // Sabemos que hay 1
+  
+  nextTick(() => {
+    const placeholders = document.querySelectorAll('.storyblok-component');
+    debugInfo.value.placeholdersEnDOM = placeholders.length;
+    debugInfo.value.htmlContienePlaceholders = placeholders.length > 0;
+  });
+};
+
+// AGREGAR: El computed que faltaba
+const renderedRichText = computed(() => {
+  if (!isValidContent.value) return '';
+  
+  try {
+    return renderRichTextWithIds(props.blok.content);
+  } catch (error) {
+    console.error('Error al renderizar Rich Text:', error);
+    return '<p>Error al procesar el contenido</p>';
+  }
+});
+
+
+console.log(props.blok.content);
 </script>
 
 <template>
@@ -184,8 +384,112 @@ onMounted(() => {
       <UPageBody>
         <div class="richtext-content-wrapper">
           <div class="richtext-content prose prose-lg max-w-none mx-auto">
+            
+            <!-- SECCIÓN DE DEBUG VISUAL -->
+            <!-- <div class="debug-section mb-8 p-6 bg-gray-50 rounded-lg border">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">🔧 Debug de Componentes Anidados</h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">Renderizado iniciado:</span>
+                    <span :class="debugInfo.renderizado ? 'text-green-600' : 'text-red-600'">
+                      {{ debugInfo.renderizado ? '✅' : '❌' }}
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">Resolver ejecutado:</span>
+                    <span :class="debugInfo.resolverEjecutado ? 'text-green-600' : 'text-red-600'">
+                      {{ debugInfo.resolverEjecutado ? '✅' : '❌' }}
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">Placeholders generados:</span>
+                    <span class="font-mono">{{ debugInfo.placeholdersGenerados }}</span>
+                  </div>
+                </div>
+                
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">Componentes encontrados:</span>
+                    <span class="font-mono">{{ debugInfo.componentesEncontrados }}</span>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">Placeholders en DOM:</span>
+                    <span class="font-mono">{{ debugInfo.placeholdersEnDOM }}</span>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">HTML contiene placeholders:</span>
+                    <span :class="debugInfo.htmlContienePlaceholders ? 'text-green-600' : 'text-red-600'">
+                      {{ debugInfo.htmlContienePlaceholders ? '✅' : '❌' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Errores -->
+              <!-- <div v-if="debugInfo.errores.length > 0" class="mb-4">
+                <h4 class="text-sm font-semibold text-red-800 mb-2">❌ Errores:</h4>
+                <div class="space-y-1">
+                  <div v-for="error in debugInfo.errores" :key="error" class="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    {{ error }}
+                  </div>
+                </div>
+              </div> -->
+              
+              <!-- Mapa de componentes -->
+              <div class="mb-4">
+                <h4 class="text-sm font-semibold text-gray-800 mb-2">📦 Componentes extraídos:</h4>
+                <div v-if="componentDataMap.size === 0" class="text-xs text-gray-500">
+                  No se encontraron componentes
+                </div>
+                <div v-else class="space-y-2">
+                  <div 
+                    v-for="[uid, component] of componentDataMap" 
+                    :key="uid"
+                    class="text-xs bg-blue-50 p-2 rounded"
+                  >
+                    <strong>{{ component.component }}</strong> ({{ uid }})
+                    <div class="text-gray-600">{{ component.name || 'Sin nombre' }}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Estado actual -->
+              <!-- <div class="text-xs text-gray-600">
+                <strong>Diagnóstico:</strong>
+                <span v-if="!debugInfo.renderizado" class="text-red-600">
+                  El renderizado no se ha iniciado
+                </span>
+                <span v-else-if="!debugInfo.resolverEjecutado" class="text-orange-600">
+                  El resolver no se ejecutó - no hay componentes anidados en el contenido
+                </span>
+                <span v-else-if="debugInfo.placeholdersGenerados === 0" class="text-orange-600">
+                  No se generaron placeholders
+                </span>
+                <span v-else-if="!debugInfo.htmlContienePlaceholders" class="text-red-600">
+                  Los placeholders se generaron pero no están en el HTML final
+                </span>
+                <span v-else-if="debugInfo.placeholdersEnDOM === 0" class="text-red-600">
+                  Los placeholders están en el HTML pero no en el DOM
+                </span>
+                <span v-else class="text-green-600">
+                  Todo funciona correctamente - deberías ver los componentes
+                </span>
+              </div> -->
+            </div> -->
+            
+            <!-- MANTENER: Renderizado que ahora incluye componentes en posición -->
             <div v-if="blok && isValidContent" v-html="renderedRichText"></div>
             
+            <!-- ELIMINAR: Ya no necesitamos sección separada -->
+            <!-- <div v-if="nestedComponents.length > 0">...</div> -->
+            
+            <!-- MANTENER: Todo lo existente -->
             <UContentSurround 
               :surround="surround" 
               :ui="{
@@ -200,6 +504,7 @@ onMounted(() => {
         </div>
       </UPageBody>
 
+      <!-- MANTENER: TOC existente -->
       <template
         v-if="tocLinks?.length"
         #right
