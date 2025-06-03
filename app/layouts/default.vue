@@ -5,7 +5,7 @@
     <UMain>
       <slot />
     </UMain>
-
+<FooterSimple/>
     <!-- <AppFooter /> -->
   </div>
 </template>

@@ -13,13 +13,23 @@ const languages = [{
 const items = computed(() => [{
   label: 'Nosotros',
   to: '/nosotros',
-  children: [{
+  children: [{label:'Quienes somos', to: '/nosotros', description: 'Información sobre nuestra organización'},{
     label: 'Bradford Hill Norte',
-    to: '/bhn'
+    to: '/bhn',
+    description: 'Centro de investigación en Antofagasta'
   }]
 }, {
   label: 'Estudios Clínicos',
-  to: '/estudios-clinicos'
+  to: '/estudios-clinicos',
+  children: [{
+    label: 'Buscar Estudios Clínicos',
+    to: '/buscar-estudios',
+    description: 'Encuentra estudios clínicos disponibles'
+  }, {
+    label: 'Preguntas Frecuentes',
+    to: '/faqs',
+    description: 'Preguntas Frecuentes sobre Estudios Clínicos'
+  }]
 }, {
   label: 'Publicaciones',
   to: '/publicaciones'
@@ -28,7 +38,7 @@ const items = computed(() => [{
   to: '/comite-etica'
 }, {
   label: 'Comunicaciones',
-  children: [{label: 'Preguntas Frecuentes', to: '/faqs', description: 'Preguntas Frecuentes sobre Estudios Clínicos'}, {
+  children: [{
     label: 'Blog',
     to: '/blog',
     description: 'Articulos de investigación, innovación y esperanza en el tratamiento del cáncer'
@@ -36,8 +46,7 @@ const items = computed(() => [{
     label: 'Prensa',
     to: '/prensa',
     description: 'Noticias y comunicados de prensa'
-  }],
-
+  }]
 }, {
   label: 'Contacto',
   to: '/contacto'
