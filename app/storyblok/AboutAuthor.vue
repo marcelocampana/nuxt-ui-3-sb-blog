@@ -8,27 +8,27 @@ const props = defineProps({
 </script>
 
 <template>
-  <div class="bg-red-500 border border-gray-200 rounded-lg p-6 my-8">
-    <h3 class="text-xl font-bold text-gray-900 mb-4">
-      Sobre el Autor
-    </h3>
-    
+  <UCard class="my-8">
+    <template #header>
+      <h3 class="text-xl font-semibold">
+        Sobre el Autor
+      </h3>
+    </template>
+
     <div class="flex flex-col sm:flex-row gap-4">
       <!-- Avatar -->
       <div class="flex-shrink-0">
-        <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
-          <UAvatar
-            v-if="blok.avatar?.filename"
-            :src="blok.avatar.filename"
-            :alt="`Foto de ${blok.name}`"
-            size="lg"
-          />
-          <UAvatar
-            v-else
-            :alt="blok.name"
-            size="lg"
-          />
-        </div>
+        <UAvatar
+          v-if="blok.avatar?.filename"
+          :src="blok.avatar.filename"
+          :alt="`Foto de ${blok.name}`"
+          size="lg"
+        />
+        <UAvatar
+          v-else
+          :alt="blok.name"
+          size="lg"
+        />
       </div>
       
       <!-- Información del autor -->
@@ -37,16 +37,16 @@ const props = defineProps({
           {{ blok.name }}
         </h4>
         
-        <p class="text-sm text-gray-600 mb-3 italic">
+        <UBadge v-if="blok.role" variant="subtle" class="mb-3">
           {{ blok.role }}
-        </p>
+        </UBadge>
         
         <p class="text-sm text-gray-700 leading-relaxed">
           {{ blok.quote }}
         </p>
       </div>
     </div>
-  </div>
+  </UCard>
 </template>
 
 
