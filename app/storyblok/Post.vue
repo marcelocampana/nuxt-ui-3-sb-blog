@@ -90,9 +90,6 @@ const renderRichTextWithIds = (content) => {
   if (!content) return '';
   
   try {
-    // NO mutar debugInfo aquí - causa bucle infinito
-    // debugInfo.value.renderizado = true;
-    
     if (!content.content) return '';
     
     let html = '';
@@ -127,14 +124,13 @@ const renderRichTextWithIds = (content) => {
             html += renderRichText(singleNodeContent);
           }
         } catch (nodeError) {
-          // Si hay error renderizando un nodo individual, saltarlo
           console.warn('Error renderizando nodo:', node.type, nodeError);
         }
       }
     });
     
     // Solo agregar IDs en el cliente después del primer renderizado
-    if (process.client && tocLinks.value.length > 0) {
+    if (import.meta.client && tocLinks.value.length > 0) {
       html = addIdsToH2s(html, tocLinks.value);
     }
     
@@ -150,31 +146,44 @@ const renderRichTextWithIds = (content) => {
   }
 };
 
-// CORREGIR: Extraer componentes una sola vez al montar, no en cada render
+// NUEVO: Variable reactiva para componentes anidados
+const nestedComponents = ref([]);
+
+// CORREGIR: Extraer componentes y mantenerlos en variable reactiva
 const extractComponentData = (content) => {
   if (!content?.content) return;
   
-  // Limpiar el mapa antes de extraer
+  // Limpiar datos anteriores
   componentDataMap.clear();
+  nestedComponents.value = [];
   debugInfo.value.componentesEncontrados = 0;
   
   // Buscar directamente en el contenido principal
-  content.content.forEach(node => {
+  content.content.forEach((node, index) => {
     if (node.type === 'blok' && node.attrs && node.attrs.body) {
       const componentData = node.attrs.body[0];
       if (componentData && componentData._uid) {
         componentDataMap.set(componentData._uid, componentData);
+        
+        // Agregar a la lista de componentes anidados
+        nestedComponents.value.push({
+          ...componentData,
+          position: index // Para mantener el orden
+        });
+        
         debugInfo.value.componentesEncontrados++;
       }
     }
   });
 };
 
-// CORREGIR: No llamar extractComponentData de nuevo en replaceComponentPlaceholders
+// CORREGIR: Usar ClientOnly para asegurar que el teleport funcione
+const showNestedComponents = ref(false);
+
+// SIMPLIFICAR: Solo crear placeholders, los componentes se renderizan en template
 const replaceComponentPlaceholders = async () => {
-  if (!process.client) return;
+  if (!import.meta.client) return;
   
-  extractComponentData(props.blok.content);
   await nextTick();
   
   const placeholders = document.querySelectorAll('.storyblok-component');
@@ -184,122 +193,56 @@ const replaceComponentPlaceholders = async () => {
     const component = placeholder.dataset.component;
     const uid = placeholder.dataset.uid;
     
-    let componentData = componentDataMap.get(uid);
-    
-    if (!componentData) {
-      for (const [key, value] of componentDataMap.entries()) {
-        if (value.component === component) {
-          componentData = value;
-          break;
-        }
-      }
-    }
-    
-    if (componentData && component === 'About-Author') {
-      // Usar el componente AboutAuthor real
-      placeholder.outerHTML = `
-        <div class="about-author bg-gray-50 border border-gray-200 rounded-lg p-6 my-8">
-          <h3 class="text-xl font-semibold text-gray-900 mb-4">
-            Sobre el Autor
-          </h3>
-          
-          <div class="flex flex-col sm:flex-row gap-4">
-            <div class="flex-shrink-0">
-              <div class="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
-                ${componentData.avatar?.filename ? 
-                  `<img src="${componentData.avatar.filename}" alt="${componentData.name}" class="w-full h-full object-cover">` : 
-                  `<span class="text-gray-600 text-xl font-semibold">${componentData.name?.charAt(0) || 'A'}</span>`
-                }
-              </div>
-            </div>
-            
-            <div class="flex-1">
-              <h4 class="text-lg font-semibold text-gray-900 mb-1">
-                ${componentData.name || 'Autor'}
-              </h4>
-              
-              ${componentData.role ? `<p class="text-sm text-gray-600 mb-3 italic">${componentData.role}</p>` : ''}
-              
-              ${componentData.bio ? `<p class="text-sm text-gray-700 leading-relaxed">${componentData.bio}</p>` : ''}
-              
-              ${(componentData.email || componentData.linkedin || componentData.twitter) ? `
-                <div class="flex gap-3 mt-3">
-                  ${componentData.email ? `<a href="mailto:${componentData.email}" class="text-xs text-gray-600 hover:text-gray-800">📧 Email</a>` : ''}
-                  ${componentData.linkedin ? `<a href="${componentData.linkedin}" target="_blank" class="text-xs text-gray-600 hover:text-gray-800">💼 LinkedIn</a>` : ''}
-                  ${componentData.twitter ? `<a href="${componentData.twitter}" target="_blank" class="text-xs text-gray-600 hover:text-gray-800">🐦 Twitter</a>` : ''}
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    } else if (componentData) {
-      // Para otros tipos de componentes, mantener el debug
-      placeholder.innerHTML = `
-        <div class="p-4 border rounded bg-blue-50 border-blue-200">
-          <p class="text-sm text-blue-700">
-            ✅ Componente: <strong>${componentData.component}</strong>
-          </p>
-          <p class="text-xs text-blue-600 mt-1">
-            UID: ${componentData._uid}
-          </p>
-        </div>
-      `;
-    } else {
-      placeholder.innerHTML = `
-        <div class="p-4 border rounded bg-red-50 border-red-200">
-          <p class="text-sm text-red-700">
-            ❌ No se encontraron datos para: <strong>${component}</strong>
-          </p>
-        </div>
-      `;
-    }
+    // Reemplazar placeholder con div identificador para el componente Vue
+    placeholder.outerHTML = `<div id="nested-component-${uid}" class="nested-component-container"></div>`;
   });
+  
+  // Activar el renderizado de componentes después de crear los targets
+  await nextTick();
+  showNestedComponents.value = true;
 };
 
 // Verificar que los elementos H2 existan en el DOM después del render
 onMounted(() => {
-  if (process.client) {
-    // Extraer componentes inmediatamente
-    extractComponentData(props.blok.content);
+  // Extraer componentes inmediatamente
+  extractComponentData(props.blok.content);
+  
+  // Actualizar debug info una sola vez
+  updateDebugInfo();
+  
+  nextTick(() => {
+    // Opción 2: Diferentes valores para móvil y desktop
+    const isMobile = window.innerWidth < 768;
+    const offset = isMobile ? -0 : -20; // Ajusta estos valores según necesites
     
-    // Actualizar debug info una sola vez
-    updateDebugInfo();
+    // También puedes usar un enfoque más granular:
+    // const offset = window.innerWidth < 640 ? -5 : // móvil pequeño
+    //                window.innerWidth < 768 ? -10 : // tablet
+    //                -25; // desktop
     
-    nextTick(() => {
-      // Opción 2: Diferentes valores para móvil y desktop
-      const isMobile = window.innerWidth < 768;
-      const offset = isMobile ? -0 : -20; // Ajusta estos valores según necesites
-      
-      // También puedes usar un enfoque más granular:
-      // const offset = window.innerWidth < 640 ? -5 : // móvil pequeño
-      //                window.innerWidth < 768 ? -10 : // tablet
-      //                -25; // desktop
-      
-      addScrollPadding(offset);
-      
-      // Agregar IDs inmediatamente después del montaje
-      addIdsPostMount(tocLinks.value);
-      
-      // Interceptar clics del TOC para scroll personalizado
-      interceptTocClicks(tocLinks.value);
-      
-      // Verificación después de un tiempo (opcional, para debug)
-      if (process.env.NODE_ENV === 'development') {
-        verifyH2Elements(tocLinks.value);
-      }
-      
-      // AGREGAR: Reemplazar componentes después del montaje
-      setTimeout(() => {
-        replaceComponentPlaceholders();
-      }, 200);
-    });
-  }
+    addScrollPadding(offset);
+    
+    // Agregar IDs inmediatamente después del montaje
+    addIdsPostMount(tocLinks.value);
+    
+    // Interceptar clics del TOC para scroll personalizado
+    interceptTocClicks(tocLinks.value);
+    
+    // Verificación después de un tiempo (opcional, para debug)
+    if (process.env.NODE_ENV === 'development') {
+      verifyH2Elements(tocLinks.value);
+    }
+    
+    // AGREGAR: Reemplazar componentes después del montaje
+    setTimeout(() => {
+      replaceComponentPlaceholders();
+    }, 500); // Aumentar el tiempo para asegurar que el DOM esté listo
+  });
 });
 
 // AGREGAR: Función para actualizar debug info sin causar loops
 const updateDebugInfo = () => {
-  if (!process.client) return;
+  if (!import.meta.client) return;
   
   debugInfo.value.renderizado = true;
   debugInfo.value.resolverEjecutado = true;
@@ -385,8 +328,22 @@ console.log(props.blok.content);
         <div class="richtext-content-wrapper">
           <div class="richtext-content prose prose-lg max-w-none mx-auto">
             
-            <!-- MANTENER: Renderizado que ahora incluye componentes en posición -->
+            <!-- MANTENER: Renderizado que incluye placeholders -->
             <div v-if="blok && isValidContent" v-html="renderedRichText"></div>
+            
+            <!-- CORREGIR: Usar ClientOnly y condición para renderizar componentes -->
+            <ClientOnly>
+              <template v-if="showNestedComponents">
+                <template v-for="nestedComponent in nestedComponents" :key="nestedComponent._uid">
+                  <Teleport :to="`#nested-component-${nestedComponent._uid}`">
+                    <component 
+                      :is="nestedComponent.component" 
+                      :blok="nestedComponent"
+                    />
+                  </Teleport>
+                </template>
+              </template>
+            </ClientOnly>
             
             <!-- MANTENER: Todo lo existente -->
             <UContentSurround 
