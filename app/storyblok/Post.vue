@@ -53,39 +53,9 @@ const tocLinks = computed(() => {
   return generateTocFromContent(props.blok.content);
 });
 
-// Variables para debugging visual
-const debugInfo = ref({
-  renderizado: false,
-  resolverEjecutado: false,
-  placeholdersGenerados: 0,
-  componentesEncontrados: 0,
-  placeholdersEnDOM: 0,
-  htmlContienePlaceholders: false,
-  errores: []
-});
-
 const componentDataMap = new Map();
 
-// NUEVA ESTRATEGIA: Separar contenido normal de nodos blok
-const separateContentAndBloks = (content) => {
-  if (!content?.content) return { normalContent: content, blokNodes: [] };
-  
-  const blokNodes = [];
-  const normalContent = {
-    ...content,
-    content: content.content.filter(node => {
-      if (node.type === 'blok') {
-        blokNodes.push(node);
-        return false; // Remover del contenido normal
-      }
-      return true; // Mantener en el contenido normal
-    })
-  };
-  
-  return { normalContent, blokNodes };
-};
-
-// CORREGIR: Renderizado sin mutaciones reactivas
+// Renderizado sin mutaciones reactivas
 const renderRichTextWithIds = (content) => {
   if (!content) return '';
   
@@ -93,22 +63,16 @@ const renderRichTextWithIds = (content) => {
     if (!content.content) return '';
     
     let html = '';
-    let placeholdersCount = 0;
-    let hasBlokNodes = false;
     
     // Procesar cada nodo individualmente manteniendo el orden
     content.content.forEach(node => {
       if (node.type === 'blok') {
-        // Este es un componente anidado - crear placeholder
-        hasBlokNodes = true;
-        placeholdersCount++;
-        
         if (node.attrs && node.attrs.body && node.attrs.body[0]) {
           const componentData = node.attrs.body[0];
           const uid = componentData._uid;
           const component = componentData.component;
           
-          html += `<div class="storyblok-component" data-component="${component}" data-uid="${uid}">⚡ PLACEHOLDER: ${component}</div>`;
+          html += `<div class="storyblok-component" data-component="${component}" data-uid="${uid}"></div>`;
         }
       } else {
         // Este es contenido normal - renderizar individualmente
@@ -146,17 +110,16 @@ const renderRichTextWithIds = (content) => {
   }
 };
 
-// NUEVO: Variable reactiva para componentes anidados
+// Variable reactiva para componentes anidados
 const nestedComponents = ref([]);
 
-// CORREGIR: Extraer componentes y mantenerlos en variable reactiva
+// Extraer componentes y mantenerlos en variable reactiva
 const extractComponentData = (content) => {
   if (!content?.content) return;
   
   // Limpiar datos anteriores
   componentDataMap.clear();
   nestedComponents.value = [];
-  debugInfo.value.componentesEncontrados = 0;
   
   // Buscar directamente en el contenido principal
   content.content.forEach((node, index) => {
@@ -170,27 +133,22 @@ const extractComponentData = (content) => {
           ...componentData,
           position: index // Para mantener el orden
         });
-        
-        debugInfo.value.componentesEncontrados++;
       }
     }
   });
 };
 
-// CORREGIR: Usar ClientOnly para asegurar que el teleport funcione
 const showNestedComponents = ref(false);
 
-// SIMPLIFICAR: Solo crear placeholders, los componentes se renderizan en template
+// Solo crear placeholders, los componentes se renderizan en template
 const replaceComponentPlaceholders = async () => {
   if (!import.meta.client) return;
   
   await nextTick();
   
   const placeholders = document.querySelectorAll('.storyblok-component');
-  debugInfo.value.placeholdersEnDOM = placeholders.length;
   
   placeholders.forEach(async (placeholder) => {
-    const component = placeholder.dataset.component;
     const uid = placeholder.dataset.uid;
     
     // Reemplazar placeholder con div identificador para el componente Vue
@@ -207,18 +165,10 @@ onMounted(() => {
   // Extraer componentes inmediatamente
   extractComponentData(props.blok.content);
   
-  // Actualizar debug info una sola vez
-  updateDebugInfo();
-  
   nextTick(() => {
     // Opción 2: Diferentes valores para móvil y desktop
     const isMobile = window.innerWidth < 768;
-    const offset = isMobile ? -0 : -20; // Ajusta estos valores según necesites
-    
-    // También puedes usar un enfoque más granular:
-    // const offset = window.innerWidth < 640 ? -5 : // móvil pequeño
-    //                window.innerWidth < 768 ? -10 : // tablet
-    //                -25; // desktop
+    const offset = isMobile ? -0 : -20;
     
     addScrollPadding(offset);
     
@@ -228,34 +178,14 @@ onMounted(() => {
     // Interceptar clics del TOC para scroll personalizado
     interceptTocClicks(tocLinks.value);
     
-    // Verificación después de un tiempo (opcional, para debug)
-    if (process.env.NODE_ENV === 'development') {
-      verifyH2Elements(tocLinks.value);
-    }
-    
-    // AGREGAR: Reemplazar componentes después del montaje
+    // Reemplazar componentes después del montaje
     setTimeout(() => {
       replaceComponentPlaceholders();
-    }, 500); // Aumentar el tiempo para asegurar que el DOM esté listo
+    }, 500);
   });
 });
 
-// AGREGAR: Función para actualizar debug info sin causar loops
-const updateDebugInfo = () => {
-  if (!import.meta.client) return;
-  
-  debugInfo.value.renderizado = true;
-  debugInfo.value.resolverEjecutado = true;
-  debugInfo.value.placeholdersGenerados = 1; // Sabemos que hay 1
-  
-  nextTick(() => {
-    const placeholders = document.querySelectorAll('.storyblok-component');
-    debugInfo.value.placeholdersEnDOM = placeholders.length;
-    debugInfo.value.htmlContienePlaceholders = placeholders.length > 0;
-  });
-};
-
-// AGREGAR: El computed que faltaba
+// El computed que faltaba
 const renderedRichText = computed(() => {
   if (!isValidContent.value) return '';
   
@@ -266,9 +196,6 @@ const renderedRichText = computed(() => {
     return '<p>Error al procesar el contenido</p>';
   }
 });
-
-
-console.log(props.blok.content);
 </script>
 
 <template>

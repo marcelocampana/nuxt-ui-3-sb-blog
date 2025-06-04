@@ -83,7 +83,7 @@
 }
 
 .richtext-content blockquote {
-  @apply pl-4 border-l-6 border-yellow-300 italic text-yellow-950 my-4 bg-yellow-50 pt-5 pb-2;
+  @apply pl-4 border-l-6 border-yellow-300 italic text-gray-700 my-4 bg-yellow-50 pt-5 pb-2;
 }
 
 .richtext-content code {
